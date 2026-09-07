@@ -1,0 +1,139 @@
+/* Design tokens. Light is the base; dark is a token swap under prefers-color-scheme. */
+:root {
+	color-scheme: light dark;
+
+	--bg: #f6f6f4;
+	--surface: #ffffff;
+	--surface-sunken: #f0efec;
+	--border: #e2e0da;
+	--border-strong: #cbc8c0;
+
+	--text: #1c1b19;
+	--text-muted: #6b6862;
+	--text-faint: #93908a;
+
+	--accent: #b8442a;
+	--accent-soft: #fbeae5;
+	--accent-text: #8f3320;
+
+	--positive: #2f6f45;
+	--positive-soft: #e4f0e8;
+	--caution: #8a6410;
+	--caution-soft: #f8efd8;
+	--negative: #a03434;
+	--negative-soft: #f9e6e4;
+
+	--radius: 10px;
+	--radius-sm: 6px;
+	--shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 4px 12px -6px rgb(0 0 0 / 0.08);
+
+	--font-sans:
+		ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	--font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+	--measure: 68ch;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #16161a;
+		--surface: #1e1e23;
+		--surface-sunken: #26262c;
+		--border: #32323a;
+		--border-strong: #45454f;
+
+		--text: #ecebe8;
+		--text-muted: #a3a19c;
+		--text-faint: #78766f;
+
+		--accent: #e8734f;
+		--accent-soft: #3a2019;
+		--accent-text: #f0906f;
+
+		--positive: #6bbf8b;
+		--positive-soft: #1c2f24;
+		--caution: #d6ad55;
+		--caution-soft: #33290f;
+		--negative: #e08078;
+		--negative-soft: #35201f;
+
+		--shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px -6px rgb(0 0 0 / 0.5);
+	}
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	background: var(--bg);
+}
+
+body {
+	margin: 0;
+	font-family: var(--font-sans);
+	font-size: 15px;
+	line-height: 1.55;
+	color: var(--text);
+	background: var(--bg);
+	-webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	margin: 0;
+	line-height: 1.2;
+	font-weight: 620;
+	letter-spacing: -0.014em;
+}
+
+h1 {
+	font-size: 1.6rem;
+}
+h2 {
+	font-size: 1.15rem;
+}
+h3 {
+	font-size: 0.95rem;
+}
+
+p {
+	margin: 0;
+}
+
+a {
+	color: inherit;
+}
+
+button {
+	font: inherit;
+	color: inherit;
+}
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: 3px;
+}
+
+.numeric {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 0.95em;
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+	border: 0;
+}
