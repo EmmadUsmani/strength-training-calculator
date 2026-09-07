@@ -7,9 +7,11 @@ whole next session: warm-up ramp, one top set, back-offs, and the optional
 finisher. It also projects that forward over the coming sessions — with weeks
 and dates — and documents the rules it is following.
 
-It is stateless by design. Nothing is written to disk, to browser storage or to
-a server, and nothing is inferred from a previous visit: the same inputs always
-produce the same prescription.
+Your inputs are saved in `localStorage` so you do not retype them each session,
+but that is purely a typing convenience: the snapshot only ever refills the form
+fields. There is no rolling log of past workouts and nothing is inferred from a
+previous visit — every prescription is computed from the form as it stands, so
+a restored session and a hand-typed one produce identical results.
 
 The methodology comes from a research thread about breaking an upper-body
 plateau on a Greyskull-style linear progression; `/methodology` in the app is the

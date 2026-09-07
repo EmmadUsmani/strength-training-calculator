@@ -162,7 +162,8 @@ export const METHODOLOGY: MethodologySection[] = [
 		id: 'state',
 		heading: 'What the calculator remembers',
 		body: [
-			'Nothing. Every number on the page is computed from what is currently in the form, so the same inputs always produce the same prescription and there is no hidden history to get out of step with your logbook. That is why it asks for the back-off weight and how many sessions you have used it — those are the two facts it would otherwise have to remember for you.'
+			'Only what you typed, and only so you do not have to type it again. Your inputs are saved in this browser and read back into the form on your next visit; you can wipe them from the link at the bottom of any page.',
+			'Nothing else is remembered, and in particular there is no rolling log of past workouts. Every number on the page is computed from what is in the form right now, so the same inputs always produce the same prescription — a restored session and a hand-typed one are indistinguishable. That is why it asks for the back-off weight and how many sessions you have used it: those are the two facts it would otherwise have to keep a history to know, and it would rather ask you than quietly drift out of step with your logbook.'
 		]
 	},
 	{

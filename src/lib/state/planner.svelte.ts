@@ -4,6 +4,7 @@ import { buildWorkoutPlan } from '$lib/domain/plan';
 import { projectSessions, type ProjectionScenario } from '$lib/domain/projection';
 import { DEFAULT_SESSIONS_PER_WEEK, today } from '$lib/domain/schedule';
 import type { BackoffMode, LiftId, LiftInput, WorkoutPlan } from '$lib/domain/types';
+import { deserialiseDate, serialiseDate, type PlannerSnapshot } from './snapshot';
 
 /**
  * What the user reported for one lift. `null` means "not filled in yet"; the
@@ -55,8 +56,11 @@ function isPositive(value: number | null): value is number {
  * between users if this ever gained a server — the hazard a module-level
  * singleton carries.
  *
- * Nothing is written to disk or to browser storage and nothing is carried over
- * between visits: the same inputs always produce the same prescription.
+ * The form is mirrored into `localStorage` between visits so you do not retype
+ * it every session, but that is purely a convenience: `toSnapshot` and
+ * `restore` move values in and out of the form fields, and nothing else reads
+ * them. Every prescription is computed from the form as it stands, so a
+ * restored session and a hand-typed one give identical results.
  */
 export class PlannerState {
 	entries = $state<Record<LiftId, LiftEntry>>(emptyEntries());
@@ -145,6 +149,36 @@ export class PlannerState {
 	reset() {
 		this.entries = emptyEntries();
 		this.forceExtendedWarmup = false;
+	}
+
+	/**
+	 * A JSON-safe copy of the current form. A flat snapshot of what is on screen
+	 * right now — never a log of past sessions.
+	 */
+	toSnapshot(): PlannerSnapshot {
+		return {
+			entries: $state.snapshot(this.entries),
+			selectedLiftId: this.selectedLiftId,
+			forceExtendedWarmup: this.forceExtendedWarmup,
+			sessionsPerWeek: this.sessionsPerWeek,
+			lastSessionDate: serialiseDate(this.lastSessionDate),
+			scenario: this.scenario,
+			sessionCount: this.sessionCount
+		};
+	}
+
+	/** Re-fill the form from a snapshot. Touches nothing but the input fields. */
+	restore(snapshot: PlannerSnapshot): void {
+		for (const lift of LIFTS) {
+			const entry = snapshot.entries[lift.id];
+			if (entry) this.entries[lift.id] = { ...emptyEntry(lift.id), ...entry };
+		}
+		this.selectedLiftId = snapshot.selectedLiftId;
+		this.forceExtendedWarmup = snapshot.forceExtendedWarmup;
+		this.sessionsPerWeek = snapshot.sessionsPerWeek;
+		this.lastSessionDate = deserialiseDate(snapshot.lastSessionDate, this.lastSessionDate);
+		this.scenario = snapshot.scenario;
+		this.sessionCount = snapshot.sessionCount;
 	}
 }
 
