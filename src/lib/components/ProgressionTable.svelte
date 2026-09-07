@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Badge from './ui/Badge.svelte';
 	import { formatNumber, formatWeight } from '$lib/domain/rounding';
+	import { formatSessionDate } from '$lib/domain/schedule';
 	import type { ProjectedSession } from '$lib/domain/projection';
 	import type { LiftConfig, ProgressionAction } from '$lib/domain/types';
 
@@ -26,11 +27,11 @@
 	};
 
 	const backoffColumns = $derived(lift.backoffs.length);
+	const showDates = $derived(sessions.some((session) => session.date !== null));
 	const first = $derived(sessions[0]);
 	const last = $derived(sessions.at(-1));
-	const totalGain = $derived(
-		first && last ? last.topSet.weight - first.topSet.weight : 0
-	);
+	const totalGain = $derived(first && last ? last.topSet.weight - first.topSet.weight : 0);
+	const resets = $derived(sessions.filter((session) => session.backoff.recalculate).length);
 </script>
 
 <div class="scroller">
@@ -39,6 +40,8 @@
 		<thead>
 			<tr>
 				<th scope="col">Session</th>
+				<th scope="col" class="num">Week</th>
+				{#if showDates}<th scope="col">Date</th>{/if}
 				<th scope="col" class="num">Top set</th>
 				<th scope="col" class="num">Reps</th>
 				{#each { length: backoffColumns } as _, index (index)}
@@ -51,14 +54,23 @@
 		</thead>
 		<tbody>
 			{#each sessions as session (session.session)}
-				<tr class:advance={session.topSet.action !== 'hold'} class:deload={session.topSet.action === 'deload'}>
+				<tr
+					class:deload={session.topSet.action === 'deload'}
+					class:reset={session.backoff.recalculate}
+				>
 					<th scope="row">
 						{session.session === 1 ? 'Next' : `+${session.session - 1}`}
 					</th>
+					<td class="num numeric muted">{session.week}</td>
+					{#if showDates}
+						<td class="muted date">{session.date ? formatSessionDate(session.date) : '—'}</td>
+					{/if}
 					<td class="num numeric strong">{formatWeight(session.topSet.weight)}</td>
 					<td class="num numeric">{session.topSet.targetReps}</td>
 					{#each session.backoffWeights as weight, index (index)}
-						<td class="num numeric muted backoff">{formatNumber(weight)}</td>
+						<td class="num numeric muted backoff" class:fresh={session.backoff.recalculate}>
+							{formatNumber(weight)}
+						</td>
 					{/each}
 					<td>
 						<Badge tone={ACTION_TONES[session.topSet.action]}>
@@ -76,7 +88,9 @@
 		{sessions.length} sessions from {formatWeight(first.topSet.weight)} to
 		{formatWeight(last.topSet.weight)} —
 		{totalGain >= 0 ? 'a gain of' : 'a drop of'}
-		{formatWeight(Math.abs(totalGain))} on the top set.
+		{formatWeight(Math.abs(totalGain))} on the top set, with
+		{resets}
+		back-off {resets === 1 ? 'reset' : 'resets'} along the way (shown in bold).
 	</p>
 {/if}
 
@@ -139,6 +153,16 @@
 		color: var(--text-faint);
 	}
 
+	/* A session that resets the back-off block is the one worth spotting. */
+	.backoff.fresh {
+		color: var(--text);
+		font-weight: 650;
+	}
+
+	tbody tr.reset td.backoff {
+		border-top-color: var(--border-strong);
+	}
+
 	tbody tr:first-child {
 		background: var(--accent-soft);
 	}
@@ -153,8 +177,13 @@
 		color: var(--negative);
 	}
 
-	/* On a phone the whole prescription should be readable without scrolling
-	   sideways, so trade padding and type size for fitting every column. */
+	.summary {
+		margin-top: 0.9rem;
+		font-size: 0.85rem;
+		color: var(--text-muted);
+		max-width: var(--measure);
+	}
+
 	@media (max-width: 34rem) {
 		table {
 			font-size: 0.75rem;
@@ -171,17 +200,11 @@
 			padding: 0.45rem 0.22rem;
 		}
 
-		/* Even trimmed, seven columns do not fit a phone. Drop the back-offs —
-		   they are already spelled out on the next-workout page — so the top set
-		   and the progression verdict stay visible without scrolling. */
+		/* Even trimmed, this many columns will not fit a phone. Drop the back-offs —
+		   they are already spelled out on the next-workout page — so the top set,
+		   the date and the progression verdict stay visible without scrolling. */
 		.backoff {
 			display: none;
 		}
-	}
-
-	.summary {
-		margin-top: 0.9rem;
-		font-size: 0.85rem;
-		color: var(--text-muted);
 	}
 </style>

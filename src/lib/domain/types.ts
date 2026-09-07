@@ -1,9 +1,9 @@
 /**
  * Core domain types for the training calculator.
  *
- * The whole app is a pure function of a small `LiftInput` plus a static
- * `LiftConfig`: nothing here reads from the network, disk or the DOM.
- * All weights are in pounds.
+ * The whole app is a pure function of a `LiftInput` plus a static `LiftConfig`:
+ * nothing here reads from the network, disk, browser storage or the DOM, and
+ * nothing is remembered between renders. All weights are in pounds.
  */
 
 export type LiftId = 'bench' | 'ohp' | 'squat' | 'deadlift' | 'row' | 'curl';
@@ -15,13 +15,13 @@ export type ProgressionModel =
 	/** Reps climb first, then weight resets the ladder (barbell curl). */
 	| 'rep';
 
-/** How the previous session's top set actually went. */
+/** How the previous session's top set went, derived from the reps you logged. */
 export type TopSetOutcome =
 	/** Hit every target rep with good bar speed and form. */
 	| 'clean'
-	/** Hit the target reps, but the last rep or two were a grind. */
+	/** Hit the target reps, but you flagged them as a grind. */
 	| 'grind'
-	/** Missed the rep target. */
+	/** Came up short of the rep target. */
 	| 'miss';
 
 /** What the calculator decided to do with the top set this session. */
@@ -57,19 +57,42 @@ export interface PrescribedSet {
 	optional?: boolean;
 }
 
+/**
+ * What you did on the back-off sets last session, and how long that back-off
+ * weight has been in place. Null when there is no block running yet.
+ */
+export interface BackoffInput {
+	/** The heaviest back-off weight you used last session. */
+	weight: number;
+	/** Reps you completed on those back-off sets. */
+	reps: number;
+	/** How many sessions you have now used this back-off weight, including the last one. */
+	sessionsUsed: number;
+}
+
+/** Whether to hold the current back-off block or recalculate it. */
+export type BackoffMode =
+	/** Apply the movement and time triggers automatically. */
+	| 'auto'
+	/** Keep the current back-off weights regardless. */
+	| 'hold'
+	/** Recalculate from today's top set regardless. */
+	| 'recalculate';
+
 /** The user's report of their last session for one lift. */
 export interface LiftInput {
 	/** Top set weight used last session. */
 	lastTopSetWeight: number;
-	/** How that top set went. */
-	outcome: TopSetOutcome;
-	/** Whether the session *before* that one was also a miss. */
+	/** Reps completed on that top set. */
+	lastTopSetReps: number;
+	/** You hit the reps, but the last one or two were a fight. */
+	grindy: boolean;
+	/** Whether the session *before* that one also missed the rep target. */
 	previousSessionMissed: boolean;
-	/**
-	 * Reps completed on the last top set. Only meaningful for `rep`-model
-	 * lifts, where the target itself moves between sessions.
-	 */
-	lastTopSetReps?: number;
+	/** The back-off block currently running, or null to calculate one fresh. */
+	backoff: BackoffInput | null;
+	/** Sessions of this lift per week; drives the time-based recalculation fallback. */
+	sessionsPerWeek: number;
 }
 
 /** What the progression rules decided for the upcoming top set. */
@@ -77,10 +100,45 @@ export interface TopSetPrescription {
 	weight: number;
 	targetReps: number;
 	action: ProgressionAction;
+	/** The outcome derived from the reps you logged. */
+	outcome: TopSetOutcome;
 	/** Plain-English justification, shown in the UI. */
 	rationale: string;
 	/** Change in top set weight versus last session (may be negative). */
 	weightDelta: number;
+}
+
+/** Why the back-off block was held or recalculated. */
+export type BackoffTrigger =
+	/** The top set has moved far enough past the anchor. */
+	| 'movement'
+	/** The block has been in place long enough. */
+	| 'sessions'
+	/** No block was running, so one was calculated fresh. */
+	| 'no-history'
+	/** The top set deloaded, so the block resets with it. */
+	| 'deload'
+	/** The user overrode the automatic decision. */
+	| 'manual';
+
+/** The decision about this session's back-off weights. */
+export interface BackoffDecision {
+	/** Whether the block resets to today's top set. */
+	recalculate: boolean;
+	/** The mode that produced this decision. */
+	mode: BackoffMode;
+	/** What tipped it, or null when the block is simply being held. */
+	trigger: BackoffTrigger | null;
+	/** Plain-English explanation, shown in the UI. */
+	reason: string;
+	/** The top set weight the current back-off weight implies. */
+	anchor: number | null;
+	/** How far the new top set has moved past that anchor. */
+	movement: number | null;
+	/** Sessions after which the time-based fallback fires. */
+	sessionLimit: number;
+	/** Sessions the current block has already run. */
+	sessionsUsed: number;
 }
 
 /** A complete prescribed session for one lift. */
@@ -88,6 +146,7 @@ export interface WorkoutPlan {
 	lift: LiftConfig;
 	input: LiftInput;
 	topSet: TopSetPrescription;
+	backoff: BackoffDecision;
 	sets: PrescribedSet[];
 	/** Advisory notes specific to this session. */
 	notes: string[];
@@ -96,7 +155,10 @@ export interface WorkoutPlan {
 /** A back-off set template, expressed relative to the top set. */
 export interface BackoffSpec {
 	percent: number;
-	reps: string;
+	/** Reps prescribed on a freshly recalculated block. */
+	minReps: number;
+	/** Rep ceiling; reps climb to here before the weight moves. */
+	maxReps: number;
 	optional?: boolean;
 }
 
@@ -140,7 +202,7 @@ export interface LiftConfig {
 	/** Back-off sets, in prescribed order. */
 	backoffs: BackoffSpec[];
 	/** Optional burnout set at the end of the session. */
-	finisher?: BackoffSpec;
+	finisher?: { percent: number; reps: string };
 	/** A separate accessory movement closing out the session. */
 	accessory?: AccessorySpec;
 	/** Rest before the top set. */

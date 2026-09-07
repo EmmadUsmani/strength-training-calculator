@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BackoffStatus from './BackoffStatus.svelte';
 	import Card from './ui/Card.svelte';
 	import SetTable from './SetTable.svelte';
 	import TopSetVerdict from './TopSetVerdict.svelte';
@@ -23,6 +24,8 @@
 		<TopSetVerdict topSet={plan.topSet} />
 
 		<SetTable sets={plan.sets} lift={plan.lift} />
+
+		<BackoffStatus backoff={plan.backoff} />
 
 		{#if plan.notes.length}
 			<ul class="notes">

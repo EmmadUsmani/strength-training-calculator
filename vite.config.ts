@@ -3,6 +3,13 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { defineConfig } from 'vitest/config';
 
+/**
+ * GitHub Pages serves a project site from /<repo>, so the app has to be built
+ * with that prefix. The workflow sets BASE_PATH; local builds and dev stay at
+ * the root.
+ */
+const base = (process.env.BASE_PATH ?? '') as '' | `/${string}`;
+
 export default defineConfig({
 	plugins: [
 		// Points Vitest at Svelte's client build (and auto-cleans up rendered
@@ -16,7 +23,8 @@ export default defineConfig({
 			},
 
 			// Fully static output: every route is prerendered to HTML at build time.
-			adapter: adapter({ fallback: undefined, strict: true })
+			adapter: adapter({ fallback: undefined, strict: true }),
+			paths: { base }
 		})
 	],
 	test: {

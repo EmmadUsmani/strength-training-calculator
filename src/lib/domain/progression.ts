@@ -1,5 +1,18 @@
 import { formatNumber, roundToIncrement } from './rounding';
-import type { LiftConfig, LiftInput, TopSetPrescription } from './types';
+import type { LiftConfig, LiftInput, TopSetOutcome, TopSetPrescription } from './types';
+
+/**
+ * Classify last session's top set from the reps you logged.
+ *
+ * Hitting the target is a clean session unless you flagged it as a grind;
+ * coming up short is a miss. For the rep-model lifts the "target" is the bottom
+ * rung of the ladder, since the rung you were actually chasing is whatever you
+ * managed last time.
+ */
+export function deriveOutcome(input: LiftInput, lift: LiftConfig): TopSetOutcome {
+	if (input.lastTopSetReps < lift.topSetReps) return 'miss';
+	return input.grindy ? 'grind' : 'clean';
+}
 
 /**
  * Decide the next top set from the last one.
@@ -10,17 +23,27 @@ import type { LiftConfig, LiftInput, TopSetPrescription } from './types';
  *  - missed         -> hold; a *second* consecutive miss cuts 10% and rebuilds
  */
 export function nextTopSet(input: LiftInput, lift: LiftConfig): TopSetPrescription {
+	const outcome = deriveOutcome(input, lift);
 	const prescription =
-		lift.model === 'rep' ? nextRepModelTopSet(input, lift) : nextLoadModelTopSet(input, lift);
+		lift.model === 'rep'
+			? nextRepModelTopSet(input, lift, outcome)
+			: nextLoadModelTopSet(input, lift, outcome);
 
-	return { ...prescription, weightDelta: round(prescription.weight - input.lastTopSetWeight) };
+	return {
+		...prescription,
+		outcome,
+		weightDelta: round(prescription.weight - input.lastTopSetWeight)
+	};
 }
+
+type PartialPrescription = Omit<TopSetPrescription, 'weightDelta' | 'outcome'>;
 
 function nextLoadModelTopSet(
 	input: LiftInput,
-	lift: LiftConfig
-): Omit<TopSetPrescription, 'weightDelta'> {
-	const { lastTopSetWeight, outcome, previousSessionMissed } = input;
+	lift: LiftConfig,
+	outcome: TopSetOutcome
+): PartialPrescription {
+	const { lastTopSetWeight, previousSessionMissed } = input;
 	const targetReps = lift.topSetReps;
 
 	if (outcome === 'clean') {
@@ -47,7 +70,7 @@ function nextLoadModelTopSet(
 			weight: deloadWeight(lastTopSetWeight, lift),
 			targetReps,
 			action: 'deload',
-			rationale: `Two misses in a row. Drop ${Math.round((1 - lift.deloadFactor) * 100)}% and rebuild from a weight you can own.`
+			rationale: `Two misses in a row. Drop ${deloadPercent(lift)}% and rebuild from a weight you can own.`
 		};
 	}
 
@@ -55,17 +78,17 @@ function nextLoadModelTopSet(
 		weight: lastTopSetWeight,
 		targetReps,
 		action: 'hold',
-		rationale:
-			'Missed the rep target. Repeat the same weight — no added load until the top set is clean. Miss it again and the next session deloads.'
+		rationale: `${input.lastTopSetReps} of ${targetReps} reps last session. Repeat the same weight — no added load until the top set is clean. Miss it again and the next session deloads.`
 	};
 }
 
 function nextRepModelTopSet(
 	input: LiftInput,
-	lift: LiftConfig
-): Omit<TopSetPrescription, 'weightDelta'> {
-	const { lastTopSetWeight, outcome, previousSessionMissed } = input;
-	const lastReps = clampReps(input.lastTopSetReps ?? lift.topSetReps, lift);
+	lift: LiftConfig,
+	outcome: TopSetOutcome
+): PartialPrescription {
+	const { lastTopSetWeight, previousSessionMissed } = input;
+	const lastReps = clampReps(input.lastTopSetReps, lift);
 
 	if (outcome === 'clean') {
 		if (lastReps >= lift.maxTopSetReps) {
@@ -89,18 +112,18 @@ function nextRepModelTopSet(
 			weight: deloadWeight(lastTopSetWeight, lift),
 			targetReps: lift.topSetReps,
 			action: 'deload',
-			rationale: `Two misses in a row. Cut ${Math.round((1 - lift.deloadFactor) * 100)}% and restart the rep ladder at ${lift.topSetReps}.`
+			rationale: `Two sessions short of ${lift.topSetReps} reps. Cut ${deloadPercent(lift)}% and restart the rep ladder.`
 		};
 	}
 
 	return {
 		weight: lastTopSetWeight,
-		targetReps: lastReps,
+		targetReps: Math.max(lastReps, outcome === 'miss' ? lift.topSetReps : lastReps),
 		action: 'hold',
 		rationale:
 			outcome === 'grind'
 				? `Repeat ${lastReps} reps at this weight until they are clean — the rep ladder only moves on clean sets.`
-				: `Hold here and hit ${lastReps} clean reps before pushing the ladder further.`
+				: `Short of the ${lift.topSetReps}-rep floor. Hold here until you own it, then start climbing the ladder.`
 	};
 }
 
@@ -110,6 +133,10 @@ export function deloadWeight(weight: number, lift: LiftConfig): number {
 	// Guarantee the deload actually moves, even at very light loads.
 	const capped = Math.min(dropped, round(weight - lift.increment));
 	return Math.max(capped, lift.barWeight);
+}
+
+function deloadPercent(lift: LiftConfig): number {
+	return Math.round((1 - lift.deloadFactor) * 100);
 }
 
 function clampReps(reps: number, lift: LiftConfig): number {

@@ -41,7 +41,7 @@ export const METHODOLOGY: MethodologySection[] = [
 			{
 				term: 'Back-offs',
 				detail:
-					'80-85% of the day’s top set for 6-8 reps. This is where the volume that drives hypertrophy and work capacity lives. Three sets for bench and OHP, two for row, one for squat, one (optional) for deadlift.'
+					'80-85% of the top set the block was anchored to, for 6-8 reps. This is where the volume that drives hypertrophy and work capacity lives. Three sets for bench and OHP, two for row, one for squat, one (optional) for deadlift.'
 			},
 			{
 				term: 'Finisher',
@@ -76,10 +76,45 @@ export const METHODOLOGY: MethodologySection[] = [
 	},
 	{
 		id: 'backoffs',
-		heading: 'Why 80-85%, and why they move every session',
+		heading: 'Why 80-85%',
 		body: [
 			'At 90%+ of the top set you can manage two to four reps before form breaks down, which recreates the original problem: multiple sets at near-maximal load, high fatigue cost, little volume. At 80-85% you get 6-8 reps with good bar speed and much less joint stress, which is what actually builds the base underneath the top set.',
-			'The original advice was to hold the back-off weights fixed for two to three weeks and recalculate once the top set had moved 5-10 lb. This calculator instead recomputes them from the current top set every session. The practical difference is small — at 2.5 lb per session a back-off drifts about 2 lb over three weeks — and it removes a piece of state you would otherwise have to remember. If you want the fixed-anchor version, just keep using the back-off weights the calculator gave you a few sessions ago.'
+			'The two halves of the session are deliberately kept from fighting each other for the same recovery. The top set is the strength driver and moves nearly every session; the back-offs are the volume driver and stay put for weeks at a time.'
+		]
+	},
+	{
+		id: 'blocks',
+		heading: 'The back-off block',
+		body: [
+			'Back-off weights are held fixed for a stretch of sessions — a block — and only then recalculated. Moving them every session turns them into a second thing to test, which is what caused the original stall. Inside a block the reps climb instead of the weight: hit the bottom of the range, then chase one more rep each session up to the top of it.',
+			'The real trigger for resetting a block is meaningful progress on the top set, not an arbitrary session count. The time-based rule is only a fallback for when strength gains slow down.'
+		],
+		rules: [
+			{
+				term: 'Movement trigger',
+				detail:
+					'The block resets once the top set has climbed 7.5 lb past the weight the block was set from. The research gives a 5-10 lb window; this takes the middle of it, which is three clean sessions at 2.5 lb — or the four to six the research expects once the usual misses and repeats are in the mix.'
+			},
+			{
+				term: 'Time trigger',
+				detail:
+					'Whichever comes first: the block also resets after three weeks on the same weight, converted to a session count from how often you train the lift. At 2×/week that is six sessions; at 1×/week, three.'
+			},
+			{
+				term: 'Deload',
+				detail:
+					'A 10% cut to the top set resets the block with it, rather than leaving back-offs sitting on top of a lighter top set.'
+			},
+			{
+				term: 'Reps inside a block',
+				detail:
+					'Add a rep per session up to the top of the range before anything else changes. If three sets at the top of the range start feeling easy well before the block resets, adding a fourth set is a reasonable upgrade on the lifts that tolerate volume — bench, OHP and squat, not deadlift.'
+			},
+			{
+				term: 'Overriding it',
+				detail:
+					'The automatic decision is a default, not a rule. Hold or reset the block by hand whenever you have a reason to — resetting after three sessions because the back-offs feel light is a perfectly good reason.'
+			}
 		]
 	},
 	{
@@ -121,6 +156,13 @@ export const METHODOLOGY: MethodologySection[] = [
 				detail:
 					'Runs a different model entirely. Biceps are a small single-joint muscle that responds better to moderate loads in the 8-12 range than to low-rep grinding, so reps climb first: hit 8 clean, then chase 9, 10, 11, 12. Only at 12 does the weight go up 2.5 lb and the ladder reset to 8. It finishes with one dumbbell curl set to failure, taken after a normal 60-90 second rest rather than as a drop set.'
 			}
+		]
+	},
+	{
+		id: 'state',
+		heading: 'What the calculator remembers',
+		body: [
+			'Nothing. Every number on the page is computed from what is currently in the form, so the same inputs always produce the same prescription and there is no hidden history to get out of step with your logbook. That is why it asks for the back-off weight and how many sessions you have used it — those are the two facts it would otherwise have to remember for you.'
 		]
 	},
 	{

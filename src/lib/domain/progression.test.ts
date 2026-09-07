@@ -1,61 +1,95 @@
 import { describe, expect, it } from 'vitest';
 import { BENCH, CURL, DEADLIFT, OHP, SQUAT } from './lifts';
-import { deloadWeight, nextTopSet } from './progression';
-import type { LiftInput, TopSetOutcome } from './types';
+import { deriveOutcome, deloadWeight, nextTopSet } from './progression';
+import { makeInput } from './testing';
 
-function input(
-	lastTopSetWeight: number,
-	outcome: TopSetOutcome,
-	previousSessionMissed = false,
-	lastTopSetReps?: number
-): LiftInput {
-	return { lastTopSetWeight, outcome, previousSessionMissed, lastTopSetReps };
-}
+describe('deriveOutcome', () => {
+	it('reads a clean session off the rep count', () => {
+		expect(deriveOutcome(makeInput({ lastTopSetReps: 5 }), BENCH)).toBe('clean');
+		expect(deriveOutcome(makeInput({ lastTopSetReps: 7 }), BENCH)).toBe('clean');
+	});
+
+	it('reads a miss off the rep count', () => {
+		expect(deriveOutcome(makeInput({ lastTopSetReps: 4 }), BENCH)).toBe('miss');
+		expect(deriveOutcome(makeInput({ lastTopSetReps: 0 }), BENCH)).toBe('miss');
+	});
+
+	it('only counts a grind when the reps were actually hit', () => {
+		expect(deriveOutcome(makeInput({ lastTopSetReps: 5, grindy: true }), BENCH)).toBe('grind');
+		expect(deriveOutcome(makeInput({ lastTopSetReps: 3, grindy: true }), BENCH)).toBe('miss');
+	});
+
+	it('measures the curl against the bottom of its rep ladder', () => {
+		expect(deriveOutcome(makeInput({ lastTopSetReps: 8 }), CURL)).toBe('clean');
+		expect(deriveOutcome(makeInput({ lastTopSetReps: 11 }), CURL)).toBe('clean');
+		expect(deriveOutcome(makeInput({ lastTopSetReps: 7 }), CURL)).toBe('miss');
+	});
+});
 
 describe('load-model progression', () => {
 	it('adds 2.5 lb after a clean top set', () => {
-		const result = nextTopSet(input(82.5, 'clean'), OHP);
+		const result = nextTopSet(makeInput({ lastTopSetWeight: 82.5, lastTopSetReps: 5 }), OHP);
 		expect(result.weight).toBe(85);
 		expect(result.targetReps).toBe(5);
 		expect(result.action).toBe('advance-load');
+		expect(result.outcome).toBe('clean');
 		expect(result.weightDelta).toBe(2.5);
 	});
 
 	it('holds the weight when the reps were ground out', () => {
-		const result = nextTopSet(input(105, 'grind'), BENCH);
+		const result = nextTopSet(
+			makeInput({ lastTopSetWeight: 105, lastTopSetReps: 5, grindy: true }),
+			BENCH
+		);
 		expect(result.weight).toBe(105);
 		expect(result.action).toBe('hold');
 		expect(result.weightDelta).toBe(0);
 	});
 
 	it('holds the weight after a single miss', () => {
-		const result = nextTopSet(input(105, 'miss'), BENCH);
+		const result = nextTopSet(makeInput({ lastTopSetWeight: 105, lastTopSetReps: 3 }), BENCH);
 		expect(result.weight).toBe(105);
 		expect(result.action).toBe('hold');
+		expect(result.rationale).toContain('3 of 5 reps');
 	});
 
 	it('deloads 10% after two consecutive misses', () => {
-		const result = nextTopSet(input(105, 'miss', true), BENCH);
+		const result = nextTopSet(
+			makeInput({ lastTopSetWeight: 105, lastTopSetReps: 3, previousSessionMissed: true }),
+			BENCH
+		);
 		// 105 * 0.9 = 94.5, rounded to the nearest 2.5 lb.
 		expect(result.weight).toBe(95);
 		expect(result.action).toBe('deload');
 		expect(result.weightDelta).toBe(-10);
 	});
 
-	it('ignores the miss streak when the last session was clean', () => {
-		const result = nextTopSet(input(105, 'clean', true), BENCH);
+	it('ignores the miss streak when the last session hit its reps', () => {
+		const result = nextTopSet(
+			makeInput({ lastTopSetWeight: 105, lastTopSetReps: 5, previousSessionMissed: true }),
+			BENCH
+		);
 		expect(result.weight).toBe(107.5);
 		expect(result.action).toBe('advance-load');
 	});
 
+	it('counts extra reps as a clean session, not a bonus', () => {
+		const result = nextTopSet(makeInput({ lastTopSetWeight: 105, lastTopSetReps: 8 }), BENCH);
+		expect(result.weight).toBe(107.5);
+		expect(result.targetReps).toBe(5);
+	});
+
 	it('applies the same rules to every load-model lift', () => {
-		expect(nextTopSet(input(155, 'clean'), SQUAT).weight).toBe(157.5);
-		expect(nextTopSet(input(160, 'clean'), DEADLIFT).weight).toBe(162.5);
+		expect(nextTopSet(makeInput({ lastTopSetWeight: 155 }), SQUAT).weight).toBe(157.5);
+		expect(nextTopSet(makeInput({ lastTopSetWeight: 160 }), DEADLIFT).weight).toBe(162.5);
 	});
 
 	it('always produces a rationale', () => {
-		for (const outcome of ['clean', 'grind', 'miss'] as const) {
-			expect(nextTopSet(input(100, outcome), BENCH).rationale.length).toBeGreaterThan(20);
+		for (const reps of [5, 3]) {
+			for (const grindy of [true, false]) {
+				const result = nextTopSet(makeInput({ lastTopSetReps: reps, grindy }), BENCH);
+				expect(result.rationale.length).toBeGreaterThan(20);
+			}
 		}
 	});
 });
@@ -78,45 +112,53 @@ describe('deloadWeight', () => {
 
 describe('rep-model progression (barbell curl)', () => {
 	it('chases one more rep at the same weight after a clean set', () => {
-		const result = nextTopSet(input(50, 'clean', false, 8), CURL);
+		const result = nextTopSet(makeInput({ lastTopSetWeight: 50, lastTopSetReps: 8 }), CURL);
 		expect(result.weight).toBe(50);
 		expect(result.targetReps).toBe(9);
 		expect(result.action).toBe('advance-reps');
 	});
 
 	it('adds weight and resets the ladder once the top of the range is clean', () => {
-		const result = nextTopSet(input(50, 'clean', false, 12), CURL);
+		const result = nextTopSet(makeInput({ lastTopSetWeight: 50, lastTopSetReps: 12 }), CURL);
 		expect(result.weight).toBe(52.5);
 		expect(result.targetReps).toBe(8);
 		expect(result.action).toBe('advance-load');
 	});
 
 	it('repeats the same rep target after a grind', () => {
-		const result = nextTopSet(input(50, 'grind', false, 10), CURL);
+		const result = nextTopSet(
+			makeInput({ lastTopSetWeight: 50, lastTopSetReps: 10, grindy: true }),
+			CURL
+		);
 		expect(result.weight).toBe(50);
 		expect(result.targetReps).toBe(10);
 		expect(result.action).toBe('hold');
 	});
 
-	it('rebuilds from the bottom of the ladder after two misses', () => {
-		const result = nextTopSet(input(60, 'miss', true, 6), CURL);
+	it('holds at the rep floor after falling short of it', () => {
+		const result = nextTopSet(makeInput({ lastTopSetWeight: 60, lastTopSetReps: 6 }), CURL);
+		expect(result.weight).toBe(60);
+		expect(result.targetReps).toBe(CURL.topSetReps);
+		expect(result.action).toBe('hold');
+	});
+
+	it('rebuilds from the bottom of the ladder after two short sessions', () => {
+		const result = nextTopSet(
+			makeInput({ lastTopSetWeight: 60, lastTopSetReps: 6, previousSessionMissed: true }),
+			CURL
+		);
 		expect(result.weight).toBe(55);
 		expect(result.targetReps).toBe(CURL.topSetReps);
 		expect(result.action).toBe('deload');
 	});
 
-	it('defaults to the base rep target when reps are not supplied', () => {
-		const result = nextTopSet(input(50, 'clean'), CURL);
-		expect(result.targetReps).toBe(CURL.topSetReps + 1);
-	});
-
 	it('clamps a nonsense rep count into the ladder', () => {
-		expect(nextTopSet(input(50, 'clean', false, 40), CURL).action).toBe('advance-load');
-		expect(nextTopSet(input(50, 'clean', false, Number.NaN), CURL).targetReps).toBe(9);
+		expect(nextTopSet(makeInput({ lastTopSetReps: 40 }), CURL).action).toBe('advance-load');
+		expect(nextTopSet(makeInput({ lastTopSetReps: Number.NaN }), CURL).targetReps).toBe(9);
 	});
 
 	it('walks the full ladder from 8 reps to a weight increase', () => {
-		let current = input(50, 'clean', false, 8);
+		let current = makeInput({ lastTopSetWeight: 50, lastTopSetReps: 8 });
 		const targets: number[] = [];
 		for (let i = 0; i < 5; i++) {
 			const next = nextTopSet(current, CURL);

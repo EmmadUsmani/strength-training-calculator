@@ -1,8 +1,7 @@
 <script lang="ts">
 	import NumberField from './ui/NumberField.svelte';
-	import SegmentedControl from './ui/SegmentedControl.svelte';
 	import Toggle from './ui/Toggle.svelte';
-	import type { LiftConfig, TopSetOutcome } from '$lib/domain/types';
+	import type { LiftConfig } from '$lib/domain/types';
 	import type { LiftEntry } from '$lib/state/planner.svelte';
 
 	interface Props {
@@ -11,7 +10,7 @@
 		forceExtendedWarmup: boolean;
 		onweight: (weight: number | null) => void;
 		onreps: (reps: number | null) => void;
-		onoutcome: (outcome: TopSetOutcome) => void;
+		ongrindy: (grindy: boolean) => void;
 		onpreviousmiss: (missed: boolean) => void;
 		onextendedwarmup: (extended: boolean) => void;
 	}
@@ -22,29 +21,16 @@
 		forceExtendedWarmup,
 		onweight,
 		onreps,
-		onoutcome,
+		ongrindy,
 		onpreviousmiss,
 		onextendedwarmup
 	}: Props = $props();
 
-	const outcomeOptions: { value: TopSetOutcome; label: string; description: string }[] = [
-		{
-			value: 'clean',
-			label: 'Clean',
-			description: 'All target reps with good bar speed and form'
-		},
-		{
-			value: 'grind',
-			label: 'Grindy',
-			description: 'Hit the reps, but the last one or two were a fight'
-		},
-		{ value: 'miss', label: 'Missed', description: 'Came up short of the rep target' }
-	];
-
-	const repTargetLabel = $derived(
+	const missed = $derived((entry.lastTopSetReps ?? 0) < lift.topSetReps);
+	const repsHint = $derived(
 		lift.model === 'rep'
-			? `Reps completed (${lift.topSetReps}-${lift.maxTopSetReps} ladder)`
-			: `Reps completed (target ${lift.topSetReps})`
+			? `The rep ladder runs ${lift.topSetReps}-${lift.maxTopSetReps}; the weight only moves at ${lift.maxTopSetReps}.`
+			: `Target is ${lift.topSetReps}. Anything less counts as a miss.`
 	);
 </script>
 
@@ -52,7 +38,7 @@
 	<div class="row">
 		<NumberField
 			id="last-weight"
-			label="Last top set"
+			label="Top set weight"
 			value={entry.lastTopSetWeight}
 			suffix="lb"
 			min={0}
@@ -62,29 +48,20 @@
 			onchange={onweight}
 		/>
 
-		{#if lift.model === 'rep'}
-			<NumberField
-				id="last-reps"
-				label={repTargetLabel}
-				value={entry.lastTopSetReps}
-				min={1}
-				max={lift.maxTopSetReps}
-				step={1}
-				placeholder={String(lift.topSetReps)}
-				hint="Reps climb before weight does, so the calculator needs the count."
-				onchange={onreps}
-			/>
-		{/if}
+		<NumberField
+			id="last-reps"
+			label="Reps completed"
+			value={entry.lastTopSetReps}
+			min={0}
+			max={30}
+			step={1}
+			placeholder={String(lift.topSetReps)}
+			hint={repsHint}
+			onchange={onreps}
+		/>
 	</div>
 
-	<SegmentedControl
-		legend="How did that top set go?"
-		options={outcomeOptions}
-		value={entry.outcome}
-		onchange={onoutcome}
-	/>
-
-	{#if entry.outcome === 'miss'}
+	{#if missed}
 		<div class="conditional">
 			<Toggle
 				id="previous-miss"
@@ -94,6 +71,14 @@
 				onchange={onpreviousmiss}
 			/>
 		</div>
+	{:else}
+		<Toggle
+			id="grindy"
+			label="It was a grind — repeat the weight"
+			hint="Hit the reps, but the last one or two were a fight. Holds the top set for one more session instead of adding load."
+			checked={entry.grindy}
+			onchange={ongrindy}
+		/>
 	{/if}
 
 	<Toggle
@@ -114,7 +99,7 @@
 
 	.row {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 		gap: 1rem;
 	}
 

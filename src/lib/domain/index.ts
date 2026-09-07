@@ -4,5 +4,6 @@ export * from './rounding';
 export * from './progression';
 export * from './warmup';
 export * from './backoff';
+export * from './schedule';
 export * from './plan';
 export * from './projection';

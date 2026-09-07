@@ -42,11 +42,11 @@ export const BENCH: LiftConfig = {
 	warmup: PRESS_WARMUP,
 	warmupExtended: PRESS_WARMUP_EXTENDED,
 	backoffs: [
-		{ percent: 85, reps: '6-8' },
-		{ percent: 82.5, reps: '6-8' },
-		{ percent: 80, reps: '6-8' }
+		{ percent: 85, minReps: 6, maxReps: 8 },
+		{ percent: 82.5, minReps: 6, maxReps: 8 },
+		{ percent: 80, minReps: 6, maxReps: 8 }
 	],
-	finisher: { percent: 55, reps: 'max', optional: true },
+	finisher: { percent: 55, reps: 'max' },
 	coachingNotes: [
 		'One top set only. A second set at the same weight is a fatigued set in disguise, not extra strength work.',
 		'Failing near the chest points at pecs; failing at lockout points at triceps — pick your accessory work accordingly.'
@@ -62,11 +62,11 @@ export const OHP: LiftConfig = {
 	warmup: PRESS_WARMUP,
 	warmupExtended: PRESS_WARMUP_EXTENDED,
 	backoffs: [
-		{ percent: 85, reps: '6-8' },
-		{ percent: 82.5, reps: '6-8' },
-		{ percent: 80, reps: '6-8' }
+		{ percent: 85, minReps: 6, maxReps: 8 },
+		{ percent: 82.5, minReps: 6, maxReps: 8 },
+		{ percent: 80, minReps: 6, maxReps: 8 }
 	],
-	finisher: { percent: 55, reps: 'max', optional: true },
+	finisher: { percent: 55, reps: 'max' },
 	coachingNotes: [
 		'The smallest of the barbell lifts — if 2.5 lb per session starts outrunning you, move to 1.25 lb micro-plates or add weight every other clean session.',
 		'The empty-bar set earns its place here: it warms the shoulder joint specifically before overhead loading.'
@@ -81,7 +81,7 @@ export const SQUAT: LiftConfig = {
 	model: 'load',
 	warmup: LOWER_WARMUP,
 	warmupExtended: LOWER_WARMUP_EXTENDED,
-	backoffs: [{ percent: 85, reps: '5-8' }],
+	backoffs: [{ percent: 85, minReps: 5, maxReps: 8 }],
 	coachingNotes: [
 		'Switched to one top set pre-emptively: squats carry more systemic fatigue than presses, so grinding a second top set costs more recovery than it did upstairs.',
 		'A second back-off set is a reasonable upgrade later if you are recovering well — start with one.'
@@ -98,7 +98,7 @@ export const DEADLIFT: LiftConfig = {
 	warmupExtended: LOWER_WARMUP_EXTENDED,
 	// Deliberately the lighter end of the 80-85% band: deadlift has the worst
 	// fatigue-to-benefit ratio per back-off set of any lift in the program.
-	backoffs: [{ percent: 80, reps: '5-8', optional: true }],
+	backoffs: [{ percent: 80, minReps: 5, maxReps: 8, optional: true }],
 	coachingNotes: [
 		'The back-off is marked optional on purpose — drop it on any session where you feel beaten up. It is the first thing to cut, before the top set.',
 		'Kept at the 80% end rather than 85% because deadlift recovery cost per set is higher than squat or press.'
@@ -114,10 +114,10 @@ export const ROW: LiftConfig = {
 	warmup: PRESS_WARMUP,
 	warmupExtended: PRESS_WARMUP_EXTENDED,
 	backoffs: [
-		{ percent: 85, reps: '6-8' },
-		{ percent: 80, reps: '6-8' }
+		{ percent: 85, minReps: 6, maxReps: 8 },
+		{ percent: 80, minReps: 6, maxReps: 8 }
 	],
-	finisher: { percent: 55, reps: 'max', optional: true },
+	finisher: { percent: 55, reps: 'max' },
 	coachingNotes: [
 		'The research thread never prescribed a row structure — this mirrors the press template with one fewer back-off set, since row was still progressing linearly.',
 		'Row strength around 70%+ of your bench supports a stable pressing base, so keep it climbing alongside bench.'
@@ -136,7 +136,7 @@ export const CURL: LiftConfig = {
 	maxTopSetReps: 12,
 	warmup: { percents: [65], reps: ['5'] },
 	warmupExtended: { percents: [50, 72], reps: ['5', '3'] },
-	backoffs: [{ percent: 82.5, reps: '8-10' }],
+	backoffs: [{ percent: 82.5, minReps: 8, maxReps: 10 }],
 	accessory: {
 		name: 'Dumbbell Curl',
 		reps: '12-15, to failure',

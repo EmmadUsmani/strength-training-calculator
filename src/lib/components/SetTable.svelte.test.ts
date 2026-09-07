@@ -2,12 +2,10 @@ import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import SetTable from './SetTable.svelte';
 import { buildWorkoutPlan } from '$lib/domain/plan';
+import { makeInput } from '$lib/domain/testing';
 import { CURL, DEADLIFT, OHP } from '$lib/domain/lifts';
 
-const ohpPlan = buildWorkoutPlan(
-	{ lastTopSetWeight: 82.5, outcome: 'clean', previousSessionMissed: false },
-	OHP
-);
+const ohpPlan = buildWorkoutPlan(makeInput({ lastTopSetWeight: 82.5, lastTopSetReps: 5 }), OHP);
 
 describe('SetTable', () => {
 	it('renders one row per prescribed set', () => {
@@ -31,17 +29,14 @@ describe('SetTable', () => {
 	});
 
 	it('marks optional sets', () => {
-		const plan = buildWorkoutPlan(
-			{ lastTopSetWeight: 160, outcome: 'clean', previousSessionMissed: false },
-			DEADLIFT
-		);
+		const plan = buildWorkoutPlan(makeInput({ lastTopSetWeight: 160 }), DEADLIFT);
 		render(SetTable, { sets: plan.sets, lift: DEADLIFT });
 		expect(screen.getByRole('row', { name: /Back-off/ })).toHaveTextContent('optional');
 	});
 
 	it('leaves the accessory finisher weight to the lifter', () => {
 		const plan = buildWorkoutPlan(
-			{ lastTopSetWeight: 50, outcome: 'clean', previousSessionMissed: false, lastTopSetReps: 8 },
+			makeInput({ lastTopSetWeight: 50, lastTopSetReps: 8 }),
 			CURL
 		);
 		render(SetTable, { sets: plan.sets, lift: CURL });

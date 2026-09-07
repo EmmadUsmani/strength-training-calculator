@@ -3,12 +3,14 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import LiftPicker from '$lib/components/LiftPicker.svelte';
 	import ProgressionTable from '$lib/components/ProgressionTable.svelte';
+	import ScheduleForm from '$lib/components/ScheduleForm.svelte';
 	import SegmentedControl from '$lib/components/ui/SegmentedControl.svelte';
 	import {
 		SCENARIO_DESCRIPTIONS,
 		SCENARIO_LABELS,
 		type ProjectionScenario
 	} from '$lib/domain/projection';
+	import { fromDateInputValue } from '$lib/domain/schedule';
 	import { planner } from '$lib/state/planner.svelte';
 
 	const scenarios = (Object.keys(SCENARIO_LABELS) as ProjectionScenario[]).map((value) => ({
@@ -40,7 +42,8 @@
 		<h1>Where this goes</h1>
 		<p>
 			The same rules, run forward. Session 1 is the workout the calculator is prescribing now; each
-			row after it assumes the outcome you pick below.
+			row after it assumes the outcome you pick below, and the back-off block resets on its own
+			schedule.
 		</p>
 	</div>
 
@@ -49,6 +52,19 @@
 		filled={planner.filledLiftIds}
 		onselect={(id) => planner.selectLift(id)}
 	/>
+
+	<Card title="Schedule" subtitle="Sets the pace of the projection, and the back-off block's time-based reset.">
+		<ScheduleForm
+			lift={planner.lift}
+			sessionsPerWeek={planner.sessionsPerWeek}
+			lastSessionDate={planner.lastSessionDate}
+			onsessionsperweek={(value) => (planner.sessionsPerWeek = value ?? 2)}
+			ondate={(value) => {
+				const parsed = fromDateInputValue(value);
+				if (parsed) planner.lastSessionDate = parsed;
+			}}
+		/>
+	</Card>
 
 	{#if sessions.length}
 		<Card title="{planner.lift.name} projection" subtitle={SCENARIO_DESCRIPTIONS[planner.scenario]}>
@@ -77,7 +93,8 @@
 	{:else}
 		<EmptyState
 			title="Nothing to project yet"
-			message="Enter your last {planner.lift.name} top set on the calculator page and the projection fills in here."
+			message="Enter your last {planner.lift
+				.name} top set on the calculator page and the projection fills in here."
 		/>
 	{/if}
 </div>

@@ -1,17 +1,27 @@
-import { buildAccessory, buildBackoffs, buildFinisher } from './backoff';
+import { buildAccessory, buildBackoffs, buildFinisher, decideBackoff } from './backoff';
 import { nextTopSet } from './progression';
 import { formatNumber, formatWeight } from './rounding';
 import { buildWarmup, needsExtendedWarmup } from './warmup';
-import type { LiftConfig, LiftInput, PrescribedSet, WorkoutPlan } from './types';
+import type {
+	BackoffDecision,
+	BackoffMode,
+	LiftConfig,
+	LiftInput,
+	PrescribedSet,
+	TopSetPrescription,
+	WorkoutPlan
+} from './types';
 
 export interface PlanOptions {
 	/** Force the longer warm-up ramp, e.g. after time away from the gym. */
 	forceExtendedWarmup?: boolean;
+	/** Override the automatic hold-or-recalculate decision for the back-offs. */
+	backoffMode?: BackoffMode;
 }
 
 /**
  * Turn "here is what I did last time" into a full prescribed session:
- * warm-up ramp, one top set, back-offs, and an optional finisher.
+ * warm-up ramp, one top set, back-offs and an optional finisher.
  */
 export function buildWorkoutPlan(
 	input: LiftInput,
@@ -19,6 +29,11 @@ export function buildWorkoutPlan(
 	options: PlanOptions = {}
 ): WorkoutPlan {
 	const topSet = nextTopSet(input, lift);
+	const backoff = decideBackoff(topSet, lift, input.backoff, {
+		mode: options.backoffMode ?? 'auto',
+		sessionsPerWeek: input.sessionsPerWeek
+	});
+
 	const extended =
 		options.forceExtendedWarmup ||
 		needsExtendedWarmup(topSet.weightDelta, topSet.action === 'deload');
@@ -35,16 +50,17 @@ export function buildWorkoutPlan(
 	const sets: PrescribedSet[] = [
 		...buildWarmup(topSet.weight, lift, { extended }),
 		topSetSet,
-		...buildBackoffs(topSet.weight, lift),
+		...buildBackoffs(topSet.weight, lift, backoff, input.backoff),
 		...buildFinisher(topSet.weight, lift),
 		...buildAccessory(lift)
 	];
 
-	return { lift, input, topSet, sets, notes: buildNotes(topSet, lift, extended) };
+	return { lift, input, topSet, backoff, sets, notes: buildNotes(topSet, backoff, lift, extended) };
 }
 
 function buildNotes(
-	topSet: WorkoutPlan['topSet'],
+	topSet: TopSetPrescription,
+	backoff: BackoffDecision,
 	lift: LiftConfig,
 	extended: boolean
 ): string[] {
@@ -68,6 +84,15 @@ function buildNotes(
 			'Treat the rebuild as a fresh run: clean reps only, and the weight will climb back faster than it fell.'
 		);
 	}
+
+	notes.push(backoff.reason);
+
+	if (backoff.recalculate && backoff.trigger !== 'no-history') {
+		notes.push(
+			`This is session 1 of the new back-off block — log it as such next time so the ${backoff.sessionLimit}-session fallback counts from here.`
+		);
+	}
+
 	if (extended) {
 		notes.push(
 			'Using the longer warm-up ramp because the top set moved significantly — go back to the short ramp on normal 2.5 lb sessions.'

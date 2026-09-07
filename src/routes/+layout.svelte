@@ -2,19 +2,8 @@
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import SiteNav from '$lib/components/SiteNav.svelte';
-	import { planner } from '$lib/state/planner.svelte';
-	import { onMount } from 'svelte';
 
 	let { children } = $props();
-
-	// Restore anything typed earlier in the tab, then keep the mirror current.
-	// Purely a convenience: the app never reads it back to compute a prescription,
-	// and `persist` stays inert until `hydrate` has run.
-	onMount(() => planner.hydrate());
-
-	$effect(() => {
-		planner.persist();
-	});
 </script>
 
 <svelte:head>
@@ -29,8 +18,8 @@
 
 <footer>
 	<p>
-		Weights in pounds, rounded to the nearest 2.5 lb. Everything is computed in your browser —
-		nothing is uploaded.
+		Weights in pounds, rounded to the nearest 2.5 lb. Everything is computed in your browser from
+		what you type — nothing is uploaded, and nothing is stored between visits.
 	</p>
 </footer>
 

@@ -1,26 +1,36 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import { page } from '$app/state';
 
+	// Hrefs carry the configured base path (GitHub Pages serves this from a
+	// subdirectory) and a trailing slash, which is what the prerendered output
+	// is keyed on.
 	const links = [
-		{ href: '/', label: 'Next workout' },
-		{ href: '/progression', label: 'Progression' },
-		{ href: '/methodology', label: 'Methodology' }
+		{ path: '/', label: 'Next workout' },
+		{ path: '/progression/', label: 'Progression' },
+		{ path: '/methodology/', label: 'Methodology' }
 	];
 
-	function isActive(href: string): boolean {
-		return href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
+	/** The current route with the base path stripped, always trailing-slashed. */
+	function currentPath(): string {
+		const path = page.url.pathname.slice(base.length) || '/';
+		return path.endsWith('/') ? path : `${path}/`;
+	}
+
+	function isActive(path: string): boolean {
+		return currentPath() === path;
 	}
 </script>
 
 <header class="site-header">
 	<div class="inner">
-		<a class="brand" href="/">
+		<a class="brand" href="{base}/">
 			<span class="mark" aria-hidden="true"></span>
 			<span>Top Set</span>
 		</a>
 		<nav aria-label="Sections">
-			{#each links as link (link.href)}
-				<a href={link.href} aria-current={isActive(link.href) ? 'page' : undefined}>
+			{#each links as link (link.path)}
+				<a href="{base}{link.path}" aria-current={isActive(link.path) ? 'page' : undefined}>
 					{link.label}
 				</a>
 			{/each}

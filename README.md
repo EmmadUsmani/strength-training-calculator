@@ -2,10 +2,14 @@
 
 A static strength-training calculator for a one-top-set, back-off-volume program.
 
-Give it the top set you did last session and how it went, and it prescribes the
+Give it the top set and back-offs you did last session, and it prescribes the
 whole next session: warm-up ramp, one top set, back-offs, and the optional
-finisher. It also projects that forward over the coming sessions and documents
-the rules it is following.
+finisher. It also projects that forward over the coming sessions — with weeks
+and dates — and documents the rules it is following.
+
+It is stateless by design. Nothing is written to disk, to browser storage or to
+a server, and nothing is inferred from a previous visit: the same inputs always
+produce the same prescription.
 
 The methodology comes from a research thread about breaking an upper-body
 plateau on a Greyskull-style linear progression; `/methodology` in the app is the
@@ -25,7 +29,16 @@ pnpm preview    # serve ./build
 Every route is prerendered (`export const prerender = true` in
 `src/routes/+layout.ts`) and the adapter is `@sveltejs/adapter-static` in strict
 mode, so the build output is plain HTML/CSS/JS with no server and no data
-dependencies.
+dependencies. `trailingSlash: 'always'` makes it emit `progression/index.html`
+rather than `progression.html`, so any static host serves it without rewrite
+rules.
+
+## Deployment
+
+`.github/workflows/deploy.yml` type-checks, tests and builds on every push to
+`main`, then publishes `build/` to GitHub Pages. Project pages are served from
+`/<repo>`, so the workflow builds with `BASE_PATH=/${repo}`; local builds stay at
+the root.
 
 ## Layout
 
@@ -36,9 +49,11 @@ src/lib/domain/       Pure calculation. No Svelte, no DOM, no I/O.
   rounding.ts           Weight rounding and formatting.
   progression.ts        Clean/grind/miss -> next top set.
   warmup.ts             The warm-up ramp.
-  backoff.ts            Back-off, drop and accessory sets.
+  backoff.ts            Back-off blocks: when to hold, when to reset.
+  schedule.ts           Frequency -> calendar weeks and dates.
   plan.ts               Assembles a full session.
   projection.ts         Runs the rules forward over N sessions.
+  testing.ts            Input builder shared by the tests.
 src/lib/content/      The methodology text, as data.
 src/lib/state/        The one shared rune store the three pages read from.
 src/lib/components/   Presentation. `ui/` holds the generic pieces.
@@ -61,3 +76,10 @@ Tests live next to what they cover: `*.test.ts` for the domain modules,
 Progression is gated on rep quality: a clean top set adds 2.5 lb, a grindy or
 missed one repeats, and two consecutive misses cut 10%. The barbell curl instead
 climbs 8 → 12 reps before the weight moves.
+
+Back-off weights are held in *blocks* rather than tracking the top set session
+to session. A block resets when either trigger fires — the top set has climbed
+7.5 lb past the weight the block was set from, or the block has run for three
+weeks' worth of sessions at your training frequency — and a deload resets it
+too. Inside a block the reps climb toward the top of the range instead. The
+automatic decision can be overridden per session with Hold or Reset now.

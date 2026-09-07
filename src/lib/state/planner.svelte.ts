@@ -1,33 +1,35 @@
-import { browser } from '$app/environment';
-import { LIFTS, getLift, isLiftId } from '$lib/domain/lifts';
+import { LIFTS, getLift } from '$lib/domain/lifts';
 import { buildWorkoutPlan } from '$lib/domain/plan';
 import { projectSessions, type ProjectionScenario } from '$lib/domain/projection';
-import type { LiftId, LiftInput, TopSetOutcome, WorkoutPlan } from '$lib/domain/types';
+import { DEFAULT_SESSIONS_PER_WEEK, today } from '$lib/domain/schedule';
+import type { BackoffMode, LiftId, LiftInput, WorkoutPlan } from '$lib/domain/types';
 
-const STORAGE_KEY = 'stc:planner';
-
-/** What the user reported for one lift. `null` weight means "not filled in yet". */
+/**
+ * What the user reported for one lift. `null` means "not filled in yet"; the
+ * calculator produces nothing until the top set weight is present.
+ */
 export interface LiftEntry {
 	lastTopSetWeight: number | null;
 	lastTopSetReps: number | null;
-	outcome: TopSetOutcome;
+	grindy: boolean;
 	previousSessionMissed: boolean;
-}
-
-interface PersistedState {
-	entries: Record<string, LiftEntry>;
-	selectedLiftId: string;
-	forceExtendedWarmup: boolean;
-	scenario: string;
-	sessionCount: number;
+	backoffWeight: number | null;
+	backoffReps: number | null;
+	backoffSessions: number | null;
+	backoffMode: BackoffMode;
 }
 
 function emptyEntry(liftId: LiftId): LiftEntry {
+	const lift = getLift(liftId);
 	return {
 		lastTopSetWeight: null,
-		lastTopSetReps: getLift(liftId).topSetReps,
-		outcome: 'clean',
-		previousSessionMissed: false
+		lastTopSetReps: lift.topSetReps,
+		grindy: false,
+		previousSessionMissed: false,
+		backoffWeight: null,
+		backoffReps: lift.backoffs[0].minReps,
+		backoffSessions: 1,
+		backoffMode: 'auto'
 	};
 }
 
@@ -38,24 +40,26 @@ function emptyEntries(): Record<LiftId, LiftEntry> {
 	>;
 }
 
+function isPositive(value: number | null): value is number {
+	return value !== null && Number.isFinite(value) && value > 0;
+}
+
 /**
  * Shared calculator state.
  *
  * The three pages are all views over the same handful of inputs, so the state
- * lives here rather than in any one route. It is mirrored into sessionStorage
- * purely so a reload or a deep link does not wipe what you typed — the app
- * still computes everything from scratch on every render.
+ * lives here rather than in any one route. Nothing is written to disk or to
+ * browser storage and nothing is carried over between visits: the same inputs
+ * always produce the same prescription.
  */
 export class PlannerState {
 	entries = $state<Record<LiftId, LiftEntry>>(emptyEntries());
 	selectedLiftId = $state<LiftId>('bench');
 	forceExtendedWarmup = $state(false);
+	sessionsPerWeek = $state(DEFAULT_SESSIONS_PER_WEEK);
+	lastSessionDate = $state<Date>(today());
 	scenario = $state<ProjectionScenario>('clean');
 	sessionCount = $state(8);
-
-	/** Set once `hydrate()` has run, so `persist()` cannot overwrite a stored
-	 * snapshot with the defaults before it has been read back. */
-	#hydrated = false;
 
 	/** The lift currently being planned. */
 	get lift() {
@@ -69,19 +73,35 @@ export class PlannerState {
 
 	/** Whether the selected lift has enough input to compute a plan. */
 	get hasInput(): boolean {
-		const weight = this.entry.lastTopSetWeight;
-		return weight !== null && Number.isFinite(weight) && weight > 0;
+		return isPositive(this.entry.lastTopSetWeight);
+	}
+
+	/** Whether a back-off block has been logged for the selected lift. */
+	get hasBackoffBlock(): boolean {
+		return isPositive(this.entry.backoffWeight);
 	}
 
 	/** The normalised domain input, or null when the form is incomplete. */
 	get input(): LiftInput | null {
 		if (!this.hasInput) return null;
 		const entry = this.entry;
+		const reps = entry.lastTopSetReps ?? 0;
+		const missed = reps < this.lift.topSetReps;
+
 		return {
 			lastTopSetWeight: entry.lastTopSetWeight as number,
-			outcome: entry.outcome,
-			previousSessionMissed: entry.outcome === 'miss' && entry.previousSessionMissed,
-			lastTopSetReps: entry.lastTopSetReps ?? undefined
+			lastTopSetReps: reps,
+			// A grind only means anything when the reps were actually hit.
+			grindy: !missed && entry.grindy,
+			previousSessionMissed: missed && entry.previousSessionMissed,
+			backoff: isPositive(entry.backoffWeight)
+				? {
+						weight: entry.backoffWeight,
+						reps: entry.backoffReps ?? this.lift.backoffs[0].minReps,
+						sessionsUsed: Math.max(1, entry.backoffSessions ?? 1)
+					}
+				: null,
+			sessionsPerWeek: this.sessionsPerWeek
 		};
 	}
 
@@ -90,7 +110,8 @@ export class PlannerState {
 		const input = this.input;
 		if (!input) return null;
 		return buildWorkoutPlan(input, this.lift, {
-			forceExtendedWarmup: this.forceExtendedWarmup
+			forceExtendedWarmup: this.forceExtendedWarmup,
+			backoffMode: this.entry.backoffMode
 		});
 	}
 
@@ -98,15 +119,17 @@ export class PlannerState {
 	get projection() {
 		const input = this.input;
 		if (!input) return [];
-		return projectSessions(input, this.lift, this.sessionCount, this.scenario);
+		return projectSessions(input, this.lift, this.sessionCount, {
+			scenario: this.scenario,
+			lastSessionDate: this.lastSessionDate
+		});
 	}
 
 	/** Which lifts the user has already filled in, for the picker's badges. */
 	get filledLiftIds(): LiftId[] {
-		return LIFTS.filter((lift) => {
-			const weight = this.entries[lift.id].lastTopSetWeight;
-			return weight !== null && weight > 0;
-		}).map((lift) => lift.id);
+		return LIFTS.filter((lift) => isPositive(this.entries[lift.id].lastTopSetWeight)).map(
+			(lift) => lift.id
+		);
 	}
 
 	selectLift(id: LiftId) {
@@ -116,52 +139,6 @@ export class PlannerState {
 	reset() {
 		this.entries = emptyEntries();
 		this.forceExtendedWarmup = false;
-	}
-
-	/** Read any previously typed inputs back out of sessionStorage. */
-	hydrate() {
-		if (!browser || this.#hydrated) return;
-		this.#hydrated = true;
-		try {
-			const raw = sessionStorage.getItem(STORAGE_KEY);
-			if (!raw) return;
-			const parsed = JSON.parse(raw) as Partial<PersistedState>;
-			if (parsed.entries) {
-				for (const lift of LIFTS) {
-					const entry = parsed.entries[lift.id];
-					if (entry) this.entries[lift.id] = { ...emptyEntry(lift.id), ...entry };
-				}
-			}
-			if (typeof parsed.selectedLiftId === 'string' && isLiftId(parsed.selectedLiftId)) {
-				this.selectedLiftId = parsed.selectedLiftId;
-			}
-			if (typeof parsed.forceExtendedWarmup === 'boolean') {
-				this.forceExtendedWarmup = parsed.forceExtendedWarmup;
-			}
-			if (typeof parsed.sessionCount === 'number') this.sessionCount = parsed.sessionCount;
-			if (parsed.scenario === 'clean' || parsed.scenario === 'alternating' || parsed.scenario === 'stall') {
-				this.scenario = parsed.scenario;
-			}
-		} catch {
-			// A malformed or unavailable store is not worth failing the page over.
-		}
-	}
-
-	/** Mirror the current inputs into sessionStorage. */
-	persist() {
-		if (!browser || !this.#hydrated) return;
-		try {
-			const snapshot: PersistedState = {
-				entries: $state.snapshot(this.entries),
-				selectedLiftId: this.selectedLiftId,
-				forceExtendedWarmup: this.forceExtendedWarmup,
-				scenario: this.scenario,
-				sessionCount: this.sessionCount
-			};
-			sessionStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-		} catch {
-			// Private browsing and full quotas both land here; neither is fatal.
-		}
 	}
 }
 
