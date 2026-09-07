@@ -1,3 +1,4 @@
+import { getContext, setContext } from 'svelte';
 import { LIFTS, getLift } from '$lib/domain/lifts';
 import { buildWorkoutPlan } from '$lib/domain/plan';
 import { projectSessions, type ProjectionScenario } from '$lib/domain/projection';
@@ -47,10 +48,15 @@ function isPositive(value: number | null): value is number {
 /**
  * Shared calculator state.
  *
- * The three pages are all views over the same handful of inputs, so the state
- * lives here rather than in any one route. Nothing is written to disk or to
- * browser storage and nothing is carried over between visits: the same inputs
- * always produce the same prescription.
+ * The three pages are all views over the same handful of inputs, so one
+ * instance is attached to the component tree in the root layout and read back
+ * out of context by each page (see `setPlanner` / `getPlanner`). That gives one
+ * instance per render rather than one per process, so nothing would leak
+ * between users if this ever gained a server — the hazard a module-level
+ * singleton carries.
+ *
+ * Nothing is written to disk or to browser storage and nothing is carried over
+ * between visits: the same inputs always produce the same prescription.
  */
 export class PlannerState {
 	entries = $state<Record<LiftId, LiftEntry>>(emptyEntries());
@@ -142,5 +148,24 @@ export class PlannerState {
 	}
 }
 
-/** The single instance shared by every route. */
-export const planner = new PlannerState();
+const PLANNER_KEY = Symbol('planner');
+
+/**
+ * Create the planner for this render and attach it to the component tree.
+ * Called once, in the root layout; must run during component initialisation.
+ */
+export function setPlanner(): PlannerState {
+	return setContext(PLANNER_KEY, new PlannerState());
+}
+
+/**
+ * The planner for the current component tree. Must be called during component
+ * initialisation, not from an event handler or an effect.
+ */
+export function getPlanner(): PlannerState {
+	const planner = getContext<PlannerState | undefined>(PLANNER_KEY);
+	if (!planner) {
+		throw new Error('getPlanner() was called outside a tree that ran setPlanner()');
+	}
+	return planner;
+}

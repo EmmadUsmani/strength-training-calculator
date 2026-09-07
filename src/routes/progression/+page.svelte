@@ -11,7 +11,9 @@
 		type ProjectionScenario
 	} from '$lib/domain/projection';
 	import { fromDateInputValue } from '$lib/domain/schedule';
-	import { planner } from '$lib/state/planner.svelte';
+	import { getPlanner } from '$lib/state/planner.svelte';
+
+	const planner = getPlanner();
 
 	const scenarios = (Object.keys(SCENARIO_LABELS) as ProjectionScenario[]).map((value) => ({
 		value,

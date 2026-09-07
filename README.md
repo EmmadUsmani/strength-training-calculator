@@ -55,7 +55,7 @@ src/lib/domain/       Pure calculation. No Svelte, no DOM, no I/O.
   projection.ts         Runs the rules forward over N sessions.
   testing.ts            Input builder shared by the tests.
 src/lib/content/      The methodology text, as data.
-src/lib/state/        The one shared rune store the three pages read from.
+src/lib/state/        The rune state class, put on the tree by the root layout.
 src/lib/components/   Presentation. `ui/` holds the generic pieces.
 src/routes/           /, /progression, /methodology.
 ```

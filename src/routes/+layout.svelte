@@ -2,8 +2,12 @@
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import SiteNav from '$lib/components/SiteNav.svelte';
+	import { setPlanner } from '$lib/state/planner.svelte';
 
 	let { children } = $props();
+
+	// One planner for this render, shared by every page under the layout.
+	setPlanner();
 </script>
 
 <svelte:head>

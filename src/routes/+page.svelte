@@ -5,9 +5,10 @@
 	import LiftPicker from '$lib/components/LiftPicker.svelte';
 	import SessionInputForm from '$lib/components/SessionInputForm.svelte';
 	import WorkoutPlanView from '$lib/components/WorkoutPlanView.svelte';
-	import { planner } from '$lib/state/planner.svelte';
+	import { getPlanner } from '$lib/state/planner.svelte';
 	import { base } from '$app/paths';
 
+	const planner = getPlanner();
 	const entry = $derived(planner.entry);
 	const plan = $derived(planner.plan);
 </script>
